@@ -2,19 +2,79 @@ from flask import Flask,redirect,url_for
 import os
 from flask import request
 from flask import render_template
-from Crypto.PublicKey import RSA
+from Cryptodome.PublicKey import RSA
 import os
 import sys
 import zipfile
-from Crypto import Random
-from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
-from Crypto.Random import random
-from Crypto.Signature import PKCS1_v1_5
+from Cryptodome import Random
+from Cryptodome.Cipher import AES, PKCS1_OAEP
+from Cryptodome.Hash import SHA256
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Random import random
+from Cryptodome.Signature import PKCS1_v1_5
 from werkzeug.utils import secure_filename
 app = Flask(__name__, static_folder='static', static_url_path='')
-UPLOAD_FOLDER = "./static"
+
+
+@app.route('/senderkeygenerate')
+def sender_generate():
+	return render_template("sender-key.html")
+
+@app.route('/receiverkeygenerate')
+def receive_generate():
+	return render_template("receiver-key.html")
+
+@app.route('/keygen/sender')
+def sengen():
+	password = request.args.get('password')
+	keyPair = RSA.generate(1024)
+	f = open("./static/sender/A_PrivateKey.pem", "w")
+	f.write(keyPair.exportKey("PEM",password))
+	f.close()
+	f = open("./static/sender/A_PublicKey.pem", "w")
+	f.write(str(keyPair.publickey().exportKey()))
+	f.close()
+	return redirect('/sengenerated')
+
+@app.route('/keygen/receiver')
+def recgen():
+	password = request.args.get('password')
+	keyPair = RSA.generate(1024)
+	f = open("./static/receiver/B_PrivateKey.pem", "w")
+	f.write(keyPair.exportKey("PEM",password))
+	f.close()
+	f = open("./static/receiver/B_PublicKey.pem", "w")
+	f.write(str(keyPair.publickey().exportKey()))
+	f.close()
+	return redirect('/recgenerated')
+
+@app.route('/sengenerated')
+def sengend():
+	return render_template("generated-sender.html")
+@app.route('/recgenerated')
+def recgend():
+	return render_template("generated-receiver.html")
+
+#download sender public key
+@app.route('/dspub')
+def dspub():
+	# return send_file('/static/sender/A_PublicKey.pem', as_attachment=True)
+	 return send_from_directory(directory='static/sender', filename='A_PublicKey.pem')
+
+#download sender private key
+@app.route('/dspri')
+def dspri():
+	 #return send_file('/static/sender/A_PrivateKey.pem', as_attachment=True)
+	 return send_from_directory(directory='static/sender', filename='A_PrivateKey.pem')
+
+
+
+
+
+
+
+
+UPLOAD_FOLDER = ""
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER 
 @app.route('/')
 def homepage():
@@ -23,20 +83,20 @@ def homepage():
 def banana():
 	return render_template("input.html")
 
-@app.route('/keys')
-def inp():
-	password = request.args.get('password', 'test')
-	keyPair = RSA.generate(1024)
-	f = open("./static/priKey.pem", "w")
-	f.write(keyPair.exportKey("PEM",password))
-	f.close()
-	f = open("./static/pubKey.pem", "w")
-	f.write(str(keyPair.publickey().exportKey()))
-	f.close()
-	return redirect('/generated')
-@app.route('/generated')
-def inp1():
-	return render_template("generated.html")
+# @app.route('/keys')
+# def inp():
+# 	password = request.args.get('password', 'test')
+# 	keyPair = RSA.generate(1024)
+# 	f = open("./static/priKey.pem", "w")
+# 	f.write(keyPair.exportKey("PEM",password))
+# 	f.close()
+# 	f = open("./static/pubKey.pem", "w")
+# 	f.write(str(keyPair.publickey().exportKey()))
+# 	f.close()
+# 	return redirect('/generated')
+# @app.route('/generated')
+# def inp1():
+# 	return render_template("generated.html")
 	
 ################################################################
 @app.route('/upload/',methods = ['GET','POST'])
@@ -44,7 +104,7 @@ def upload_file():
     if request.method =='POST':
         file = request.files['file[]']
         if file:
-            filename = secure_filename(file.filename)
+            filename = "encrypted.txt"
             file.save(os.path.join(app.config['UPLOAD_FOLDER'],filename))
     return redirect('/key1')
 @app.route('/key1')
@@ -55,19 +115,19 @@ def encrypt():
 	import os
 	import sys
 	import zipfile
-	from Crypto import Random
-	from Crypto.Cipher import AES, PKCS1_OAEP
-	from Crypto.Hash import SHA256
-	from Crypto.PublicKey import RSA
-	from Crypto.Random import random
-	from Crypto.Signature import PKCS1_v1_5
-	password = request.args.get('password', 'test')
-	file = request.args.get('file', 'test')
+	from Cryptodome import Random
+	from Cryptodome.Cipher import AES, PKCS1_OAEP
+	from Cryptodome.Hash import SHA256
+	from Cryptodome.PublicKey import RSA
+	from Cryptodome.Random import random
+	from Cryptodome.Signature import PKCS1_v1_5
+	password = request.args.get('password')
+	file = request.args.get('file')
 	# Define public and private key names for faster usage
 	# Sender's private key:
-	priKey = "./static/A_PrivateKey1.pem"
+	priKey = "./static/sender/A_PrivateKey.pem"
 	# Receiver's public key:
-	pubKey = "./static/B_PublicKey1.pem"
+	pubKey = "./static/receiver/B_PublicKey.pem"
 	
 	
 	
@@ -259,12 +319,12 @@ def banana2():
 @app.route('/decrypt')
 def decrypt():
 	# Define public and private key names for faster usage
-	password = request.args.get('password', 'test')
-	file = request.args.get('file', 'test')
+	password = request.args.get('password')
+	file = request.args.get('file')
 	# Sender's public key:
-	pubKey = "./static/A_PublicKey.pem"
+	pubKey = "./static/sender/A_PublicKey.pem"
 	# Receiver's private key:
-	priKey = "./static/B_PrivateKey.pem"
+	priKey = "./static/receiver/B_PrivateKey.pem"
 	
 	
 	
@@ -312,18 +372,20 @@ def decrypt():
 	    # Getting symmetric key used and iv value generated at encryption process
 	
 	    k, iv = keyReader(keyB_fname, file, password)
-	
+		
 	    # Deciphering the initial information and saving it to file with no extension
 	
+
 	    keyDecipher = AES.new(k, AES.MODE_CFB, iv)
-	    bin = open(file + ".bin", "rb").read()
-	    f = open(file.split('.')[0], "wb")
+	    bin = open("./encrypted.bin", "rb").read()
+
+	    f = open("decrypted.txt", "wb")
 	    f.write(keyDecipher.decrypt(bin))
 	    f.close()
 	
 	    # Running a Signature verification
 	
-	    sigVerification(keyA_fname, file.split('.')[0])
+	    sigVerification(keyA_fname, file.split('.')[0]+".txt")
 	
 	
 	def auxFilesUnzip(all):
@@ -411,21 +473,22 @@ def decrypt():
 	# Checking for *.all file and keys' files
 	
 	checkFiles(file, pubKey, priKey, True)
-	
+	# print "Here 1"
 	# Unzipping all files
 	
 	auxFilesUnzip(file)
-	
+	# print "Here 2"
 	# Checking for *.sig, *.key, *.bin files
 	
 	checkFiles(file, pubKey, priKey, False)
-	
+	# print "Here 3"
 	# Reading password if not assigne
 	
 	# Deciphering file
 	
 	
 	decipher(pubKey, priKey, file, password)
+	print "Here 4"
 	
 	# Cleaning all files but the deciphered file
 	
@@ -437,4 +500,4 @@ def inp3():
 	return render_template("done.html")   
 
 if __name__ == '__main__':
-    app.run(host=os.getenv('IP', '0.0.0.0'),port=int(os.getenv('PORT', 8080)))
+    app.run(host=os.getenv('IP', '0.0.0.0'),port=int(os.getenv('PORT', 5000)))
