@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 import webbrowser
 app = Flask(__name__, static_folder='static', static_url_path='')
 
+signHex = ''
 
 @app.route('/senderkeygenerate')
 def sender_generate():
@@ -360,25 +361,27 @@ def decrypt():
 	
 	
 	def sigVerification(pubKey_fname, file):
-	    # Generating decrypted file's SHA-256
-	
-	    h = SHA256.new()
-	    h.update(open(file, "r").read())
-	
-	    # Reading public key to check signature with
-	
-	    keyPair = RSA.importKey(open(pubKey_fname, "r").read())
-	    keyVerifier = PKCS1_v1_5.new(keyPair.publickey())
-	
-	    # If signature is right, prints SHA-256. Otherwise states that the file is not authentic
-	
-	    if keyVerifier.verify(h, open(file.split('.')[0] + ".sig", "r").read()):
-	        # print "The signature is authentic."
-	        # print "SHA-256 -> %s" % h.hexdigest()
-			webbrowser.open_new('http://localhost:5000/signauth')
+		global signHex
+		# Generating decrypted file's SHA-256
+
+		h = SHA256.new()
+		h.update(open(file, "r").read())
+
+		# Reading public key to check signature with
+
+		keyPair = RSA.importKey(open(pubKey_fname, "r").read())
+		keyVerifier = PKCS1_v1_5.new(keyPair.publickey())
+
+		# If signature is right, prints SHA-256. Otherwise states that the file is not authentic
+
+		if keyVerifier.verify(h, open(file.split('.')[0] + ".sig", "r").read()):
+			# print "The signature is authentic."
+			# print "SHA-256 -> %s" % h.hexdigest()
+			signHex = h.hexdigest()
+			# webbrowser.open_new('http://localhost:5000/signauth')
 			
-	    else:
-	        # print "The signature is not authentic."
+		else:
+			# print "The signature is not authentic."
 			return redirect("/error")
 			# webbrowser.open_new('http://localhost:5000/error')
 	
@@ -532,7 +535,9 @@ def decrypt():
 
 @app.route('/generated2')
 def inp3():
-	return render_template("done.html")
+	global signHex
+	print signHex
+	return render_template("done.html", signature=signHex)
 
 if __name__ == '__main__':
     app.run(host=os.getenv('IP', '0.0.0.0'),port=int(os.getenv('PORT', 5000)))
