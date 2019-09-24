@@ -1,7 +1,7 @@
 from flask import Flask,redirect,url_for
-import os
 from flask import request
 from flask import render_template
+from flask import send_file
 from Cryptodome.PublicKey import RSA
 import os
 import sys
@@ -13,6 +13,7 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Random import random
 from Cryptodome.Signature import PKCS1_v1_5
 from werkzeug.utils import secure_filename
+import webbrowser
 app = Flask(__name__, static_folder='static', static_url_path='')
 
 
@@ -58,21 +59,40 @@ def recgend():
 #download sender public key
 @app.route('/dspub')
 def dspub():
-	# return send_file('/static/sender/A_PublicKey.pem', as_attachment=True)
-	 return send_from_directory(directory='static/sender', filename='A_PublicKey.pem')
+	return send_file('./static/sender/A_PublicKey.pem', as_attachment=True)
 
 #download sender private key
 @app.route('/dspri')
 def dspri():
-	 #return send_file('/static/sender/A_PrivateKey.pem', as_attachment=True)
-	 return send_from_directory(directory='static/sender', filename='A_PrivateKey.pem')
+	return send_file('./static/sender/A_PrivateKey.pem', as_attachment=True)
 
+#download receiver public key
+@app.route('/drpub')
+def drpub():
+	return send_file('./static/receiver/B_PublicKey.pem', as_attachment=True)
 
+#download receiver private key
+@app.route('/drpri')
+def drpri():
+	return send_file('./static/receiver/B_PrivateKey.pem', as_attachment=True)
 
+#download encrypted file
+@app.route('/downenc')
+def downenc():
+	return send_file('./encrypted.all', as_attachment=True)
 
+#download decrypted file
+@app.route('/downdec')
+def downdec():
+	return send_file('./decrypted.txt', as_attachment=True)
 
+@app.route('/error')
+def error():
+	return render_template('error.html')
 
-
+@app.route('/signauth')
+def signauth():
+	return render_template('signauth.html')
 
 UPLOAD_FOLDER = ""
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER 
@@ -112,15 +132,15 @@ def banana1():
 	return render_template("input1.html")
 @app.route('/encrypt')
 def encrypt():
-	import os
-	import sys
-	import zipfile
-	from Cryptodome import Random
-	from Cryptodome.Cipher import AES, PKCS1_OAEP
-	from Cryptodome.Hash import SHA256
-	from Cryptodome.PublicKey import RSA
-	from Cryptodome.Random import random
-	from Cryptodome.Signature import PKCS1_v1_5
+	# import os
+	# import sys
+	# import zipfile
+	# from Cryptodome import Random
+	# from Cryptodome.Cipher import AES, PKCS1_OAEP
+	# from Cryptodome.Hash import SHA256
+	# from Cryptodome.PublicKey import RSA
+	# from Cryptodome.Random import random
+	# from Cryptodome.Signature import PKCS1_v1_5
 	password = request.args.get('password')
 	file = request.args.get('file')
 	# Define public and private key names for faster usage
@@ -247,29 +267,35 @@ def encrypt():
 	    else:
 	        s = file.split('.')[0]
 	        if os.path.isfile(s + ".sig") and not os.access(s + ".sig", os.W_OK):
-	            print "Can't create temporary file: *.bin. Aborting..."
-	            sys.exit(2)
+				return redirect("/error")
+	            # print "Can't create temporary file: *.bin. Aborting..."
+	            # sys.exit(2)
 	        if os.path.isfile(s + ".key") and not os.access(s + ".key", os.W_OK):
-	            print "Can't create temporary file: *.key. Aborting..."
-	            sys.exit(3)
+				return redirect("/error")
+	            # print "Can't create temporary file: *.key. Aborting..."
+	            # sys.exit(3)
 	        if os.path.isfile(s + ".bin") and not os.access(s + ".bin", os.W_OK):
-	            print "Can't create temporary file: *.bin. Aborting..."
-	            sys.exit(4)
+				return redirect("/error")
+	            # print "Can't create temporary file: *.bin. Aborting..."
+	            # sys.exit(4)
 	        if os.path.isfile(s + ".all") and not os.access(s + ".all", os.W_OK):
-	            print "Can't create output file. Aborting..."
-	            sys.exit(5)
+				return redirect("/error")
+	            # print "Can't create output file. Aborting..."
+	            # sys.exit(5)
 	
 	    # Checking for public key's existence and access
 	
 	    if not os.path.isfile(pubKey) or not os.access(pubKey, os.R_OK):
-	        print "Invalid public key file. Aborting..."
-	        sys.exit(6)
+			return redirect("/error")
+	        # print "Invalid public key file. Aborting..."
+	        # sys.exit(6)
 	
 	    # Checking for private key's existence and access
 	
 	    if not os.path.isfile(priKey) or not os.access(priKey, os.R_OK):
-	        print "Invalid private key file. Aborting..."
-	        sys.exit(7)
+			return redirect("/error")
+	        # print "Invalid private key file. Aborting..."
+	        # sys.exit(7)
 	
 	
 	# Gathering encrypting file name
@@ -292,7 +318,7 @@ def encrypt():
 	
 	# Running checks to files
 	
-	#checkFiles(file, pubKey, priKey)
+	checkFiles(file, pubKey, priKey)
 	
 	# Reading password if not assigned:
 	
@@ -347,10 +373,14 @@ def decrypt():
 	    # If signature is right, prints SHA-256. Otherwise states that the file is not authentic
 	
 	    if keyVerifier.verify(h, open(file.split('.')[0] + ".sig", "r").read()):
-	        print "The signature is authentic."
-	        print "SHA-256 -> %s" % h.hexdigest()
+	        # print "The signature is authentic."
+	        # print "SHA-256 -> %s" % h.hexdigest()
+			webbrowser.open_new('http://localhost:5000/signauth')
+			
 	    else:
-	        print "The signature is not authentic."
+	        # print "The signature is not authentic."
+			return redirect("/error")
+			# webbrowser.open_new('http://localhost:5000/error')
 	
 	
 	def keyReader(privKey_fname, file, password):
@@ -369,23 +399,22 @@ def decrypt():
 	
 	
 	def decipher(keyA_fname, keyB_fname, file, password):
-	    # Getting symmetric key used and iv value generated at encryption process
-	
-	    k, iv = keyReader(keyB_fname, file, password)
-		
-	    # Deciphering the initial information and saving it to file with no extension
-	
+		# Getting symmetric key used and iv value generated at encryption process
 
-	    keyDecipher = AES.new(k, AES.MODE_CFB, iv)
-	    bin = open("./encrypted.bin", "rb").read()
+		k, iv = keyReader(keyB_fname, file, password)
 
-	    f = open("decrypted.txt", "wb")
-	    f.write(keyDecipher.decrypt(bin))
-	    f.close()
-	
-	    # Running a Signature verification
-	
-	    sigVerification(keyA_fname, file.split('.')[0]+".txt")
+		# Deciphering the initial information and saving it to file with no extension
+
+
+		keyDecipher = AES.new(k, AES.MODE_CFB, iv)
+		bin = open("./encrypted.bin", "rb").read()
+		f = open("./decrypted.txt", "wb")
+		f.write(keyDecipher.decrypt(bin))
+		f.close()
+
+		# Running a Signature verification
+
+		sigVerification(keyA_fname, file.split('.')[0]+".txt")
 	
 	
 	def auxFilesUnzip(all):
@@ -414,39 +443,46 @@ def decrypt():
 	        # Checking for decrypting file's existence and access
 	
 	        if not os.path.isfile(file + ".all") or not os.access(file + ".all", os.R_OK):
-	            print "Invalid file to decrypt. Aborting..."
-	            sys.exit(1)
+	            # print "Invalid file to decrypt. Aborting..."
+				redirect("/error")
+	            # sys.exit(1)
 	
 	        # Checking for public key's existence and access
 	
 	        if not os.path.isfile(pubKey) or not os.access(pubKey, os.R_OK):
-	            print "Invalid public key file. Aborting..."
-	            sys.exit(6)
+	            # print "Invalid public key file. Aborting..."
+				redirect("/error")
+	            # sys.exit(6)
 	
 	        # Checking for private key's existence and access
 	
 	        if not os.path.isfile(priKey) or not os.access(priKey, os.R_OK):
-	            print "Invalid private key file. Aborting..."
-	            sys.exit(7)
+	            # print "Invalid private key file. Aborting..."
+				redirect("/error")
+	            # sys.exit(7)
 	
 	    elif not first_run:
 	        # Checking if all of the necessary files exist and are accessible
 	
 	        if not os.path.isfile(file + ".sig") or not os.access(file + ".sig", os.R_OK):
-	            print "Invalid *.sig file. Aborting..."
-	            sys.exit(2)
+	            # print "Invalid *.sig file. Aborting..."
+				redirect("/error")
+	            # sys.exit(2)
 	        if not os.path.isfile(file + ".key") or not os.access(file + ".key", os.R_OK):
-	            print "Invalid *.key file. Aborting..."
-	            sys.exit(3)
+	            # print "Invalid *.key file. Aborting..."
+				redirect("/error")
+	            # sys.exit(3)
 	        if not os.path.isfile(file + ".bin") or not os.access(file + ".bin", os.R_OK):
-	            print "Invalid *.bin file. Aborting..."
-	            sys.exit(4)
+	            # print "Invalid *.bin file. Aborting..."
+				redirect("/error")
+	            # sys.exit(4)
 	
 	        # Checking if in case of output file's existence, it is writable
 	
 	        if os.path.isfile(file) and not os.access(file, os.W_OK):
-	            print "Can't create output file. Aborting..."
-	            sys.exit(5)
+	            # print "Can't create output file. Aborting..."
+				redirect("/error")
+	            # sys.exit(5)
 	
 	
 	# Gathering encrypting file name
@@ -473,22 +509,21 @@ def decrypt():
 	# Checking for *.all file and keys' files
 	
 	checkFiles(file, pubKey, priKey, True)
-	# print "Here 1"
+	print "Here 1"
 	# Unzipping all files
 	
 	auxFilesUnzip(file)
-	# print "Here 2"
+	print "Here 2"
 	# Checking for *.sig, *.key, *.bin files
 	
 	checkFiles(file, pubKey, priKey, False)
-	# print "Here 3"
+	print "Here 3"
 	# Reading password if not assigne
 	
 	# Deciphering file
 	
 	
 	decipher(pubKey, priKey, file, password)
-	print "Here 4"
 	
 	# Cleaning all files but the deciphered file
 	
@@ -497,7 +532,7 @@ def decrypt():
 
 @app.route('/generated2')
 def inp3():
-	return render_template("done.html")   
+	return render_template("done.html")
 
 if __name__ == '__main__':
     app.run(host=os.getenv('IP', '0.0.0.0'),port=int(os.getenv('PORT', 5000)))
